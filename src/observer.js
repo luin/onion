@@ -11,8 +11,7 @@ var Observer = module.exports = function(model, keypaths, notifier) {
 
 Observer.prototype.watchMutation = function(path, array) {
   var self = this;
-  [
-    'push',
+  [ 'push',
     'pop',
     'shift',
     'unshift',
@@ -26,7 +25,7 @@ Observer.prototype.watchMutation = function(path, array) {
       Object.defineProperty(array, method, {
         value: function() {
           originalMethod.apply(array, arguments);
-          self.notifier(path, array);
+          self.notifier(path);
         }
       });
     }
@@ -54,22 +53,17 @@ Observer.prototype.convertObject = function(keypaths) {
     if (!current[OBSERVER_KEY]) {
       Object.defineProperty(current, OBSERVER_KEY, {
         value: {
-          owner: [],
-          children: []
+          keys: {}
         }
       });
     }
 
-    if (current[OBSERVER_KEY].owner.indexOf(key) >= 0) {
-      if (current[OBSERVER_KEY].children.indexOf(keypaths) < 0) {
-        current[OBSERVER_KEY].children.push(keypaths);
+    if (current[OBSERVER_KEY].keys[key]) {
+      if (current[OBSERVER_KEY].keys[key].indexOf(keypaths) < 0) {
+        current[OBSERVER_KEY].keys[key].push(keypaths);
       }
     } else {
-      current[OBSERVER_KEY].owner.push(key);
-      current[OBSERVER_KEY].children.push(keypaths);
-      if (self.keypaths.indexOf(path) >= 0 && !self.silent) {
-        self.notifier(path, value);
-      }
+      current[OBSERVER_KEY].keys[key] = [keypaths];
       Object.defineProperty(current, key, {
         enumerable: true,
         get: function() {
@@ -78,11 +72,11 @@ Observer.prototype.convertObject = function(keypaths) {
         set: function(newValue) {
           if (newValue !== value) {
             value = newValue;
-            if (self.keypaths.indexOf(path) >= 0) {
-              self.notifier(path, newValue);
-            }
-            if (this[OBSERVER_KEY].children.length) {
-              self.convertObject(this[OBSERVER_KEY].children);
+            if (this[OBSERVER_KEY].keys[key].length) {
+              self.convertObject(this[OBSERVER_KEY].keys[key]);
+              for (var i = 0; i < this[OBSERVER_KEY].keys[key].length; ++i) {
+                self.notifier(this[OBSERVER_KEY].keys[key][i]);
+              }
             }
           }
         }
